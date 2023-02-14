@@ -9,5 +9,8 @@ find_package(GLEW REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(OpenSSL REQUIRED)
 
-add_executable(NuklearTestGUI main.c)
-target_link_libraries(NuklearTestGUI glfw GLEW::GLEW ssl crypto OpenGL::GL)
+find_library(JANNSON_LIBRARY jansson HINTS /usr/lib)
+include_directories(/usr/include)
+
+add_executable(NuklearTestGUI main.c overview.c)
+target_link_libraries(NuklearTestGUI glfw GLEW::GLEW ssl crypto OpenGL::GL ${JANNSON_LIBRARY})

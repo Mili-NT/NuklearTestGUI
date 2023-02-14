@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <jansson.h>
 #include <openssl/bio.h>
 #include <openssl/evp.h>
 #include <openssl/crypto.h>
@@ -29,8 +30,8 @@
 #define MAX_VERTEX_BUFFER (512 * 1024)
 #define MAX_ELEMENT_BUFFER (128 * 1024)
 /* Style Directives */
-#define GUI_WINDOW_BACKGROUND nk_rgba(51, 51, 51, 255)
-#define GUI_TITLE_COLOR nk_rgba(229, 4, 49, 255)
+#define GUI_WINDOW_BACKGROUND nk_rgba(21, 29, 40, 255)
+#define GUI_TITLE_COLOR nk_rgba(47, 72, 92, 255)
 
 // Callback function used to report GLFW errors
 void error_callback(int error, const char* description) {
@@ -45,8 +46,36 @@ void set_style(struct nk_context *ctx) {
     style->window.fixed_background = nk_style_item_color(bg_color);
     style->window.header.normal = nk_style_item_color(header_color);
     style->window.header.active = nk_style_item_color(header_color);
+    style->window.header.close_button.normal = nk_style_item_color(header_color);
 
     ctx->style = *style;
+}
+
+json_t* search_recipe(json_t* recipe_root, char search_string[64]) {
+    json_t* result = json_array();
+    size_t array_size = json_array_size(recipe_root);
+
+    for (size_t i = 0; i < array_size; i++) {
+        json_t *obj = json_array_get(recipe_root, i);
+        if (json_is_object(obj)) {
+            const char *key;
+            json_t *value;
+            json_object_foreach(obj, key, value) {
+                // Access object fields here
+                json_t *name = json_object_get(value, "name");
+                json_t *id = json_object_get(value, "id");
+                if (json_is_string(name) && json_is_string(id)) {
+                    if (strstr(json_string_value(id), search_string)
+                    || strstr(json_string_value(name), search_string)) {
+                        fprintf(stdout, "ID (%s) or name (%s) match search string: %s\n",
+                                json_string_value(id), json_string_value(name), search_string);
+                        json_array_append(result, obj);
+                    }
+                }
+            }
+        }
+    }
+    return result;
 }
 
 int main(void)
@@ -57,11 +86,26 @@ int main(void)
     struct nk_context *ctx;
     struct nk_colorf bg;
 
-    char input_text[256] = "";
-    int input_size = 0; // array size is updated by nk_edit_string()
-    char output_text[256] = "";
-    int output_size = 0; // array size is updated by nk_edit_string()
+    /* Load JSON Files */
 
+    json_t *reagent_root, *recipe_root;
+    json_error_t error;
+
+    reagent_root = json_load_file("../reagents.json", 0, &error);
+    if (!reagent_root) {
+        printf("Reagents failed to load: %s\n", error.text);
+        exit(1);
+    }
+
+    recipe_root = json_load_file("../recipes.json", 0, &error);
+    if (!recipe_root) {
+        printf("Recipes failed to load: %s\n", error.text);
+        exit(1);
+    }
+
+    /* GUI Variables */
+    static char search_box[64];
+    int search_box_size = 0;
     /* GLFW */
     glfwSetErrorCallback(error_callback);
     if (!glfwInit()) {
@@ -110,20 +154,26 @@ int main(void)
         nk_glfw3_new_frame();
 
         /* GUI */
-        if (nk_begin(ctx, "Cryptography", nk_rect(50, 50, 220, 220),
-                     NK_WINDOW_BORDER|NK_WINDOW_MOVABLE|NK_WINDOW_MINIMIZABLE|NK_WINDOW_SCALABLE|NK_WINDOW_TITLE))
+        if (nk_begin(ctx, "Chem Helper", nk_rect(50, 50, 220, 220),
+                     NK_WINDOW_BORDER|NK_WINDOW_MOVABLE|NK_WINDOW_CLOSABLE|NK_WINDOW_SCALABLE|NK_WINDOW_TITLE))
         {
-            nk_layout_row_dynamic(ctx, 30, 2);
-            nk_label(ctx, "Input:", NK_TEXT_LEFT);
-            nk_edit_string(ctx, NK_EDIT_SIMPLE, input_text, &input_size, 256, nk_filter_default);
-
-            nk_label(ctx, "Output:", NK_TEXT_LEFT);
-            nk_edit_string(ctx, NK_EDIT_DEACTIVATED, output_text, &output_size, 256, nk_filter_default);
 
             nk_layout_row_dynamic(ctx, 30, 1);
-            if (nk_button_label(ctx, "Decrypt")) {
-
+            nk_edit_string(ctx, NK_EDIT_SIMPLE, search_box, &search_box_size, 64, nk_filter_default);
+            nk_layout_row_dynamic(ctx, 30, 1);
+            struct nk_input *input = &ctx->input;
+            if (nk_input_is_key_pressed(input, NK_KEY_ENTER) && search_box_size)
+            {
+                json_t* results_json = search_recipe(recipe_root, search_box);
+                if (json_array_size(results_json) > 0) {
+                    nk_layout_row_dynamic(ctx, 30, 1);
+                    nk_label(ctx, "Select a recipe:", NK_TEXT_LEFT);
             }
+                else {
+                    nk_layout_row_dynamic(ctx, 30, 1);
+                    nk_label(ctx, "No Recipes Found", NK_TEXT_ALIGN_CENTERED);
+                }
+        }
         }
         nk_end(ctx);
 
