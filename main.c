@@ -48,6 +48,7 @@ void set_style(struct nk_context *ctx) {
     style->window.header.active = nk_style_item_color(header_color);
     style->window.header.close_button.normal = nk_style_item_color(header_color);
 
+
     ctx->style = *style;
 }
 
@@ -61,7 +62,6 @@ json_t* search_recipe(json_t* recipe_root, char search_string[64]) {
             const char *key;
             json_t *value;
             json_object_foreach(obj, key, value) {
-                // Access object fields here
                 json_t *name = json_object_get(value, "name");
                 json_t *id = json_object_get(value, "id");
                 if (json_is_string(name) && json_is_string(id)) {
@@ -106,6 +106,8 @@ int main(void)
     /* GUI Variables */
     static char search_box[64];
     int search_box_size = 0;
+    static int isRecipeSelected = 0;
+    const char *items[10];
     /* GLFW */
     glfwSetErrorCallback(error_callback);
     if (!glfwInit()) {
@@ -140,7 +142,7 @@ int main(void)
         /*struct nk_font *future = nk_font_atlas_add_from_file(atlas, "../../../extra_font/kenvector_future_thin.ttf", 13, 0);*/
         /*struct nk_font *clean = nk_font_atlas_add_from_file(atlas, "../../../extra_font/ProggyClean.ttf", 12, 0);*/
         /*struct nk_font *tiny = nk_font_atlas_add_from_file(atlas, "../../../extra_font/ProggyTiny.ttf", 10, 0);*/
-        /*struct nk_font *cousine = nk_font_atlas_add_from_file(atlas, "../../../extra_font/Cousine-Regular.ttf", 13, 0);*/
+        struct nk_font *karla_regular = nk_font_atlas_add_from_file(atlas, "Karla-Regular.ttf", 13, 0);
         nk_glfw3_font_stash_end();
         /*nk_style_load_all_cursors(ctx, atlas->cursors);*/
         /*nk_style_set_font(ctx, &droid->handle);*/}
@@ -161,13 +163,36 @@ int main(void)
             nk_layout_row_dynamic(ctx, 30, 1);
             nk_edit_string(ctx, NK_EDIT_SIMPLE, search_box, &search_box_size, 64, nk_filter_default);
             nk_layout_row_dynamic(ctx, 30, 1);
+            /*
+             *  Desired Behavior:
+             *      1. User enters term in search box
+             *      2. User hits enter
+             *      3. The search box is cleared
+             *      4. The term is searched by search_recipe()
+             *      5. Dropdown menu / no results label is displayed
+             *      6. Dropdown menu remains open until a recipe is selected
+             *  Actual Behavior:
+             *      1. User enters term in search box
+             *      2. User hits enter
+             *      3. The term is searched by search_recipe()
+             *      4. Dropdown menu is displayed
+             *      5. Dropdown menu immediately closes
+             */
             struct nk_input *input = &ctx->input;
             if (nk_input_is_key_pressed(input, NK_KEY_ENTER) && search_box_size)
             {
                 json_t* results_json = search_recipe(recipe_root, search_box);
+                size_t results_size = json_array_size(results_json);
                 if (json_array_size(results_json) > 0) {
                     nk_layout_row_dynamic(ctx, 30, 1);
                     nk_label(ctx, "Select a recipe:", NK_TEXT_LEFT);
+                    json_t* value;
+                    for (int i = 0; i < results_size; ++i) {
+                        json_t *obj = json_array_get(results_json, i);
+                        if (json_is_object(obj)) {
+                            // Decide how the recursive reagent checking will work before proceeding with implementation
+                        }
+                    }
             }
                 else {
                     nk_layout_row_dynamic(ctx, 30, 1);
